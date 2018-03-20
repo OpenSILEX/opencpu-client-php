@@ -42,7 +42,7 @@ use openSILEX\opencpuClientPHP\classes\OCPUSession;
 
 // connexion to the opencpu server
 $ocall = new OpenCPUServer("https://cloud.opencpu.org/ocpu/");
-// connection status
+// connexion status
 print_r("Server status : " . $ocall->status(true));
 
 // array parameters

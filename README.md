@@ -28,9 +28,8 @@ Usage
 Configure examples : 
 
 After installing openCPU-client-php (through ``"Composer"``), put the examples directory in a web server accessible path.
-Set the right vendor path in ``examples/config/configLibrairy.php``
-
-After you will be able to use example, try this :
+Set the right vendor path.
+After you will be able to use the code snippet below. You will able to find more examples (asynchronous request support also) in``examples/openCPUCalls.php``.
 
 ```php
 // Require librairy 

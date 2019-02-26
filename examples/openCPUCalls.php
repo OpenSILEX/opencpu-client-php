@@ -57,7 +57,7 @@ try {
     echo PHP_EOL . $text;
 
     print_r(PHP_EOL . "Session  value $sessionInstance2->sessionId:");
-    $json = $sessionInstance2->getVal(openSILEX\opencpuClientPHP\classes\ConstantClassDefinition::OPENCPU_SESSION_JSON_FORMAT);
+    $json = $sessionInstance2->getVal($sessionInstance2::OPENCPU_SESSION_JSON_FORMAT);
     // Json format
 //    var_dump($json);
     // async call R function

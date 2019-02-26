@@ -30,7 +30,7 @@ use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\BadResponseException;
 // Local librairy
 use openSILEX\opencpuClientPHP\classes\CallStatus;
-use openSILEX\opencpuClientPHP\classes\ConstantClassDefinition;
+use openSILEX\opencpuClientPHP\OpenCPUServer;
 
 /**
  * OpenCPUServer class that represents a opencpu session
@@ -39,6 +39,71 @@ use openSILEX\opencpuClientPHP\classes\ConstantClassDefinition;
  */
 class OCPUSession {
 
+    /**
+     * application/json jsonlite::toJSON format namespace
+     */
+    const OPENCPU_SESSION_JSON_FORMAT = 'json';
+
+    /**
+     * text/plain base::print format namespace
+     */
+    const OPENCPU_SESSION_PRINT_FORMAT = 'print';
+
+    /**
+     * text/csv	utils::write.csv format namespace
+     */
+    const OPENCPU_SESSION_CSV_FORMAT = 'csv';
+
+    /**
+     * application/ndjson jsonlite::stream_out format namespace
+     */
+    const OPENCPU_SESSION_NDJSON_FORMAT = 'ndjson';
+
+    /**
+     * text/markdown pander::pander format namespace
+     */
+    const OPENCPU_SESSION_MD_FORMAT = 'md';
+
+    /**
+     * text/plain utils::write.table format namespace
+     */
+    const OPENCPU_SESSION_TAB_FORMAT = 'tab';
+
+    /**
+     * application/octet-stream base::save format namespace
+     */
+    const OPENCPU_SESSION_RDA_FORMAT = 'rda';
+
+    /**
+     * application/octet-stream base::saveRDS format namespace
+     */
+    const OPENCPU_SESSION_RDS_FORMAT = 'rds';
+
+    /**
+     * pplication/x-protobuf protolite::serialize_pb  format namespace
+     */
+    const OPENCPU_SESSION_PB_FORMAT = 'pb';
+
+    /**
+     * application/feather feather::write_feather format namespace
+     */
+    const OPENCPU_SESSION_FEATHER_FORMAT = 'feather';
+
+    /**
+     * image/png grDevices::png format namespace
+     */
+    const OPENCPU_SESSION_PNG_FORMAT = 'png';
+
+    /**
+     * application/pdf grDevices::pdf format namespace
+     */
+    const OPENCPU_SESSION_PDF_FORMAT = 'pdf';
+
+    /**
+     * image/svg+xml grDevices::svg format namespace
+     */
+    const OPENCPU_SESSION_SVG_FORMAT = 'svg';
+    
     /**
      *
      * @var string OpenCPU Session ID
@@ -127,7 +192,7 @@ class OCPUSession {
      *
      * @return string|array Depends of user choice, by default it's a string
      */
-    public function getVal($format = ConstantClassDefinition::OPENCPU_SESSION_PRINT_FORMAT, $stats = false) {
+    public function getVal($format = self::OPENCPU_SESSION_PRINT_FORMAT, $stats = false) {
         if ($this->exist) {
             $url = $this->url . "R/.val/" . $format;
             $requests_options = [];
@@ -137,7 +202,7 @@ class OCPUSession {
                     echo $stats->getTransferTime() . " seconds" . PHP_EOL;
                 };
             }
-            $response = $this->openCPUSessionCall($url, ConstantClassDefinition::OPENCPU_SERVER_GET_METHOD, $requests_options);
+            $response = $this->openCPUSessionCall($url, OpenCPUServer::OPENCPU_SERVER_GET_METHOD, $requests_options);
             // valid response
             if ($response !== null) {
                 $body = $response->getBody();
@@ -147,7 +212,7 @@ class OCPUSession {
                     if ($contents === '') {
                         return null;
                     }
-                    if ($format === ConstantClassDefinition::OPENCPU_SESSION_JSON_FORMAT) {
+                    if ($format === self::OPENCPU_SESSION_JSON_FORMAT) {
                         return json_decode($contents, true); // json PHP array
                     } else {
                         return $contents; // string
@@ -184,7 +249,7 @@ class OCPUSession {
      * @param string $format decide of the return   format OCPUSession::JSON_FORMAT,OCPUSession::PRINT_FORMAT
      * @return mixed Dépends du format demandé et du serveur OpenCPU json true renvoie un tableau;json false renvoie une chaine de caractère
      */
-    public function getObjects($objectName = null, $format = ConstantClassDefinition::OPENCPU_SESSION_PRINT_FORMAT) {
+    public function getObjects($objectName = null, $format = self::OPENCPU_SESSION_PRINT_FORMAT) {
         if ($objectName !== null) {
             if (in_array($objectName, $this->sessionObjects)) {
                 $url = $this->url . "R/$objectName/$format";
@@ -198,7 +263,7 @@ class OCPUSession {
                         if ($contents === '') {
                             return null;
                         }
-                        if ($format === ConstantClassDefinition::OPENCPU_SESSION_JSON_FORMAT) {
+                        if ($format === self::OPENCPU_SESSION_JSON_FORMAT) {
                             return json_decode($contents, true); // json PHP array
                         } else {
                             return $contents; // string
@@ -225,7 +290,7 @@ class OCPUSession {
      * @param string $requests_options additionnal parameters
      * @return \GuzzleHttp\Psr7\Response|null response from the server
      */
-    public function openCPUSessionCall($openCPUUrlRessource, $httpMethod = ConstantClassDefinition::OPENCPU_SERVER_GET_METHOD, $requests_options = []) {
+    public function openCPUSessionCall($openCPUUrlRessource, $httpMethod = OpenCPUServer::OPENCPU_SERVER_GET_METHOD, $requests_options = []) {
         try {
             // call session ressource
             $response = $this->ocpuSessionclient->request($httpMethod, $openCPUUrlRessource, $requests_options);

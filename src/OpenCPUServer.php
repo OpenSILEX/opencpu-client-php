@@ -42,7 +42,6 @@ use GuzzleHttp\TransferStats;
  */
 use openSILEX\opencpuClientPHP\classes\CallStatus;
 use openSILEX\opencpuClientPHP\classes\OCPUSession;
-use openSILEX\opencpuClientPHP\classes\ConstantClassDefinition;
 
 /**
  * OpenCPUServer class that represents an access to the openCPU server
@@ -50,6 +49,9 @@ use openSILEX\opencpuClientPHP\classes\ConstantClassDefinition;
  * @since 1.0
  */
 class OpenCPUServer {
+    
+    const OPENCPU_SERVER_GET_METHOD = 'GET';
+    const OPENCPU_SERVER_POST_METHOD = 'POST';
 
     /**
      *
@@ -81,6 +83,7 @@ class OpenCPUServer {
      */
     public static $ENABLE_CALL_STATS = false;
 
+    
     /**
      * Url parameter must be set
      * @param string $OCPUWebServerUrl openCPU Server client
@@ -107,7 +110,7 @@ class OpenCPUServer {
                 'timeout' => 60,
             ]);
             // Send a request to OpenCPU Server, example : http://cloud.opencpu.org/ocpu/
-            $response = $openCPUWebServerClient->request(ConstantClassDefinition::OPENCPU_SERVER_GET_METHOD, '');
+            $response = $openCPUWebServerClient->request(self::OPENCPU_SERVER_GET_METHOD, '');
             $this->connectionState = true;
             $this->serverCallStatus = new CallStatus($response->getReasonPhrase(), $response->getStatusCode());
             $this->openCPUWebServerClient = $openCPUWebServerClient;
@@ -179,7 +182,7 @@ class OpenCPUServer {
      */
     public function makeAsyncRCall($library, $function, $parameters = [], $promise = null) {
         $url = "library/" . $library . "/R/" . $function;
-        return $this->asyncOpenCPUServerCall($url, ConstantClassDefinition::OPENCPU_SERVER_POST_METHOD, $parameters, $promise);
+        return $this->asyncOpenCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters, $promise);
     }
 
     /**
@@ -192,7 +195,7 @@ class OpenCPUServer {
      */
     public function makeRCall($library, $function, $parameters = []) {
         $url = "library/" . $library . "/R/" . $function;
-        return $this->openCPUServerCall($url, ConstantClassDefinition::OPENCPU_SERVER_POST_METHOD, $parameters);
+        return $this->openCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters);
     }
 
     /**
@@ -205,7 +208,7 @@ class OpenCPUServer {
         if ($snippet !== null) {
             $parameters = ["x" => $snippet];
             $url = "library/base/R/identity";
-            return $this->openCPUServerCall($url, ConstantClassDefinition::OPENCPU_SERVER_POST_METHOD, $parameters);
+            return $this->openCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters);
         }
         return null;
     }
@@ -234,7 +237,7 @@ class OpenCPUServer {
      *
      * @return OCPUSession|null represents a way to call an opencpu session
      */
-    protected function openCPUServerCall($openCPUUrlRessource, $httpMethod = ConstantClassDefinition::OPENCPU_SERVER_GET_METHOD, $parameters = []) {
+    protected function openCPUServerCall($openCPUUrlRessource, $httpMethod = self::OPENCPU_SERVER_GET_METHOD, $parameters = []) {
         // request options
         $requests_options = [
             'form_params' => $parameters,
@@ -318,7 +321,7 @@ class OpenCPUServer {
      *
      * @return \GuzzleHttp\Promise\Promise|null return a OCPUSession or null if a problem has occured
      */
-    protected function asyncOpenCPUServerCall($openCPUUrlRessource, $httpMethod = ConstantClassDefinition::OPENCPU_SERVER_GET_METHOD, $parameters = [], $promiseFunction = null) {
+    protected function asyncOpenCPUServerCall($openCPUUrlRessource, $httpMethod = self::OPENCPU_SERVER_GET_METHOD, $parameters = [], $promiseFunction = null) {
         // request options
         $requests_options = [
             'form_params' => $parameters,
@@ -406,5 +409,39 @@ class OpenCPUServer {
         } else {
             return $promiseResponse->then($success, $error);
         }
+    }
+    
+    public function getAvailableApps() {
+        try{
+            $response = $this->openCPUWebServerClient->request(self::OPENCPU_SERVER_GET_METHOD, 'apps/');
+            $body = $response->getBody();
+            // retrevies body as a string
+            $stringBody = (string) $body;
+            $sessionValuesResults = explode("\n", $stringBody);
+            $cleansessionValuesResults = array_filter($sessionValuesResults);
+            return $cleansessionValuesResults;
+        }  catch (RequestException $e) {
+            $errorMessage = Psr7\str($e->getRequest());
+            if ($e->hasResponse()) {
+                $errorMessage .= '--' . Psr7\str($e->getResponse());
+            }
+            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+            // ClientException is thrown for 400 level errors
+        } catch (ClientException $e) {
+            $errorMessage = Psr7\str($e->getRequest());
+            if ($e->hasResponse()) {
+                $errorMessage .= '--' . Psr7\str($e->getResponse());
+            }
+            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+            // is thrown for 500 level errors
+        } catch (ServerException $e) {
+            $errorMessage = Psr7\str($e->getRequest());
+            if ($e->hasResponse()) {
+                $errorMessage .= '--' . Psr7\str($e->getResponse());
+            }
+            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+        }
+        
+         return [];
     }
 }

@@ -197,6 +197,19 @@ class OpenCPUServer {
         $url = "library/" . $library . "/R/" . $function;
         return $this->openCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters);
     }
+    
+    /**
+     * Execute a synchronous call to a R function
+     * @param string $appName the app which contains the function for example "OpenSILEX/variableStudy"
+     * @param string $function a R function, for example "rnom"
+     * @param array $parameters if the function takes x parameter, you can write it like ["x" => 50]
+     *
+     * @return OCPUSession represents a way to call an opencpu session
+     */
+    public function makeAppCall($appName, $function, $parameters = []) {
+        $url = "apps/" . $appName . "/R/" . $function;
+        return $this->openCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters);
+    }
 
     /**
      * Execute user R code
@@ -240,7 +253,7 @@ class OpenCPUServer {
     protected function openCPUServerCall($openCPUUrlRessource, $httpMethod = self::OPENCPU_SERVER_GET_METHOD, $parameters = []) {
         // request options
         $requests_options = [
-            'form_params' => $parameters,
+            'json' => $parameters,
         ];
         // get transfer time, if call statistics are enable OpenCPUServer::$ENABLE_CALL_STATS = true
         if (self::$ENABLE_CALL_STATS) {
@@ -311,6 +324,7 @@ class OpenCPUServer {
         }
         return null;
     }
+   
 
     /**
      * Execute an asynchronous call to a R function

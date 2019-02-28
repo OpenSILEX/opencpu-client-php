@@ -80,7 +80,7 @@ class OCPUSession {
     const OPENCPU_SESSION_RDS_FORMAT = 'rds';
 
     /**
-     * pplication/x-protobuf protolite::serialize_pb  format namespace
+     * application/x-protobuf protolite::serialize_pb  format namespace
      */
     const OPENCPU_SESSION_PB_FORMAT = 'pb';
 
@@ -105,6 +105,16 @@ class OCPUSession {
     const OPENCPU_SESSION_SVG_FORMAT = 'svg';
     
     /**
+     * raw text format namespace
+     */
+    const OPENCPU_SESSION_FILE_TEXT_FORMAT = 'textFile';
+    
+    /**
+     * application/json json format namespace
+     */
+    const OPENCPU_SESSION_FILE_JSON_FORMAT = 'jsonFile';
+    
+    /**
      *
      * @var string OpenCPU Session ID
      */
@@ -115,6 +125,12 @@ class OCPUSession {
      * @var array
      */
     private $sessionObjects = array();
+    
+     /**
+     *
+     * @var array
+     */
+    private $sessionFiles = array();
 
     /**
      *
@@ -158,8 +174,11 @@ class OCPUSession {
             $valuesClean = array_filter($values);
             $sessionObjects = preg_grep("/R\//", $valuesClean);
             $this->sessionObjects = array_values($sessionObjects);
-            $sessionValues = preg_grep("/R\//", $valuesClean, 1);
+            $sessionFiles = preg_grep("/files\//", $valuesClean);
+            $this->sessionFiles = array_values($sessionFiles);
+            $sessionValues = preg_grep("/(R\/|files\/)/", $valuesClean, 1);
             $this->sessionValues = array_values($sessionValues);
+            
         }
     }
 
@@ -279,6 +298,54 @@ class OCPUSession {
         return null;
     }
 
+    public function getFileData($fileName = null, $format = self::OPENCPU_SESSION_FILE_TEXT_FORMAT) {
+        if ($fileName !== null) {
+            if (in_array("files/$fileName", $this->sessionFiles)) {
+                $url = $this->url . "files/$fileName";
+                $response = $this->openCPUSessionCall($url);
+                // valid response
+                if ($response !== null) {
+                    $body = $response->getBody();
+//                    
+                    // Read the remaining contents of the body as a string
+                    try {
+                        $contents = $body->getContents();
+                        if ($contents === '') {
+                            return null;
+                        }
+                        if ($format === self::OPENCPU_SESSION_FILE_JSON_FORMAT) {
+                            return json_decode($contents, true); // json PHP array
+                        } else {
+                            return $contents; // string
+                        }
+                    } catch (\RuntimeException $ex) {
+                        return null;
+                    }
+                }
+            }
+        } 
+        return null;
+    }
+    
+    
+    public function getBaseUri() {
+        return $this->ocpuSessionclient->getConfig("base_uri");
+    }
+    /**
+     * 
+     * @param type $fileName
+     * @return string
+     */
+    public function getExistingFileUrl($fileName = null) {
+        if ($fileName !== null) {
+            if (in_array("files/$fileName", $this->sessionFiles)) {
+                $url = $this->getBaseUri() . $this->url . "files/$fileName";
+               return $url;
+            }
+        } 
+        return null;
+    }
+    
     public function getUrl() {
         return $this->url;
     }

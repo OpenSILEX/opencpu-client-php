@@ -204,6 +204,20 @@ class OCPUSession {
         }
     }
 
+    
+    /**
+     * Return session value Url
+     * @param type $format json or print (text)
+     * @param boolean $stats if set true return json format OCPUSession::JSON_FORMAT,OCPUSession::PRINT_FORMAT
+     * @return string can be null if 
+     */
+    public function getValUrl($format = self::OPENCPU_SESSION_PRINT_FORMAT, $stats = false) {
+        if ($this->exist) {
+            return $this->url . "R/.val/" . $format;
+        }
+        return null;
+    }
+    
     /**
      * Return session value in text (limited to 1000 line as R console) or json format
      * @param string $format decide of the return   format OCPUSession::JSON_FORMAT,OCPUSession::PRINT_FORMAT

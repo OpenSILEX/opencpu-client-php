@@ -218,6 +218,7 @@ class OCPUSession {
         return null;
     }
     
+    
     /**
      * Return session value in text (limited to 1000 line as R console) or json format
      * @param string $format decide of the return   format OCPUSession::JSON_FORMAT,OCPUSession::PRINT_FORMAT
@@ -257,7 +258,23 @@ class OCPUSession {
         }
         return null;
     }
-
+    /**
+     *
+     * @return string le code lancé par l'utilisateur
+     * @throws Exception problème d'accès au code source de la session
+     */
+    public function getConsole() {
+        if ($this->exist) {
+            $url = $this->url . "console";
+            $response = $this->openCPUSessionCall($url);
+            // valid response
+            if ($response !== null) {
+                $body = (string) $response->getBody();
+                return $body;
+            }
+        }
+        return null;
+    }
     /**
      *
      * @return string le code lancé par l'utilisateur
@@ -276,6 +293,23 @@ class OCPUSession {
         return null;
     }
 
+        /**
+     *
+     * @return string le code lancé par l'utilisateur
+     * @throws Exception problème d'accès au code source de la session
+     */
+    public function getWarnings() {
+        if ($this->exist) {
+            $url = $this->url . "warnings";
+            $response = $this->openCPUSessionCall($url);
+            // valid response
+            if ($response !== null) {
+                $body = (string) $response->getBody();
+                return $body;
+            }
+        }
+        return null;
+    }
     /**
      * Permits to retreive R session object
      * @param string $objectName R object required

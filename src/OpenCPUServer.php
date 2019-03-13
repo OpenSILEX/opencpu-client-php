@@ -298,7 +298,7 @@ class OpenCPUServer {
             $statusCode = 400;
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
+                $errorMessage .= '--' . Psr7\str($e->getResponse()->getBody()->getContents());
             }
             $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
             // is thrown for 500 level errors

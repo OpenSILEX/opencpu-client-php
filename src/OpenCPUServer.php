@@ -289,7 +289,7 @@ class OpenCPUServer {
             $statusCode = null;
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
+                $errorMessage = $e->getResponse()->getBody()->getContents();
             }
             $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
             // ClientException is thrown for 400 level errors
@@ -298,7 +298,7 @@ class OpenCPUServer {
             $statusCode = 400;
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= '--' . Psr7\str($e->getResponse()->getBody()->getContents());
+                $errorMessage .= $e->getResponse()->getBody()->getContents();
             }
             $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
             // is thrown for 500 level errors
@@ -307,13 +307,13 @@ class OpenCPUServer {
             $statusCode = 500;
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
+                $errorMessage .= $e->getResponse()->getBody()->getContents();
             }
             $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
         } catch (BadResponseException $e) {
             $errorMessage = Psr7\str($e->getRequest());
             if ($e->hasResponse()) {
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
+                $errorMessage = $e->getResponse()->getBody()->getContents();
                 $statusCode = $e->getResponse()->getStatusCode();
             } else {
                 $errorMessage = $e->getMessage();

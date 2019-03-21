@@ -49,7 +49,7 @@ use openSILEX\opencpuClientPHP\classes\OCPUSession;
  * @since 1.0
  */
 class OpenCPUServer {
-    
+
     const OPENCPU_SERVER_GET_METHOD = 'GET';
     const OPENCPU_SERVER_POST_METHOD = 'POST';
 
@@ -83,7 +83,6 @@ class OpenCPUServer {
      */
     public static $ENABLE_CALL_STATS = false;
 
-    
     /**
      * Url parameter must be set
      * @param string $OCPUWebServerUrl openCPU Server client
@@ -120,7 +119,7 @@ class OpenCPUServer {
             if ($e->hasResponse()) {
                 $errorMessage .= '--' . Psr7\str($e->getResponse());
             }
-            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+            $this->serverCallStatus = new CallStatus($errorMessage, null, $e);
             // ClientException is thrown for 400 level errors
         } catch (ClientException $e) {
             $errorMessage = Psr7\str($e->getRequest());
@@ -143,7 +142,7 @@ class OpenCPUServer {
      * @param boolean $msg if true  retreive http status
      * @return boolean|string return a http message status of the connexion or a boolean which show the status connexion
      */
-    public function status($msg = true) {
+    public function status($msg = false) {
         if ($msg) {
             return $this->serverCallStatus->getMessage();
         } else {
@@ -197,7 +196,7 @@ class OpenCPUServer {
         $url = "library/" . $library . "/R/" . $function;
         return $this->openCPUServerCall($url, self::OPENCPU_SERVER_POST_METHOD, $parameters);
     }
-    
+
     /**
      * Execute a synchronous call to a R function
      * @param string $appName the app which contains the function for example "OpenSILEX/variableStudy"
@@ -232,14 +231,17 @@ class OpenCPUServer {
      * @return OCPUSession an OCPUSession instance
      */
     public function getSessionById($sessionId) {
-        $sessionServerClient = new Client([
-            // Base URI is used with relative requests
-            'base_uri' => $this->openCPUWebServerUrl,
-            // You can set any number of default request options.
-            'timeout' => 120,
-        ]);
-        $newSession = new OCPUSession($sessionId, $sessionServerClient);
-        return $newSession;
+        if ($this->connectionState) {
+            $sessionServerClient = new Client([
+                // Base URI is used with relative requests
+                'base_uri' => $this->openCPUWebServerUrl,
+                // You can set any number of default request options.
+                'timeout' => 120,
+            ]);
+            $newSession = new OCPUSession($sessionId, $sessionServerClient);
+            return $newSession;
+        }
+        return null;
     }
 
     /**
@@ -251,80 +253,81 @@ class OpenCPUServer {
      * @return OCPUSession|null represents a way to call an opencpu session
      */
     protected function openCPUServerCall($openCPUUrlRessource, $httpMethod = self::OPENCPU_SERVER_GET_METHOD, $parameters = []) {
-        // request options
-        $requests_options = [
-            'json' => $parameters,
-        ];
-        // get transfer time, if call statistics are enable OpenCPUServer::$ENABLE_CALL_STATS = true
-        if (self::$ENABLE_CALL_STATS) {
-            $requests_options['on_stats'] = function (TransferStats $stats) {
-                echo $stats->getEffectiveUri() . PHP_EOL;
-                echo $stats->getTransferTime() . " seconds" . PHP_EOL;
-            };
-        }
-        try {
-            // call R function
-            $response = $this->openCPUWebServerClient->request($httpMethod, $openCPUUrlRessource, $requests_options);
-            // If call succeed
-            $body = $response->getBody();
-            // retrevies body as a string
-            $stringBody = (string) $body;
-            $sessionValuesResults = explode("\n", $stringBody);
-            // retreives the differents OpenCPU api ressources
-            $sessionValuesResultsClean = array_filter($sessionValuesResults);
-            preg_match("/^\/ocpu\/tmp\/([A-Za-z0-9]+)\/.*/", $sessionValuesResultsClean[0], $sessionIdMatch);
-            // retreives OpenCPU session identifier
-            $sessionId = $sessionIdMatch[1];
-            $this->callStatus = new CallStatus($response->getReasonPhrase(), $response->getStatusCode());
-            $sessionServerClient = new Client([
-                // Base URI is used with relative requests
-                'base_uri' => $this->openCPUWebServerUrl,
-                // You can set any number of default request options.
-                'timeout' => 120,
-            ]);
-            $newSession = new OCPUSession($sessionId, $sessionServerClient);
-            return $newSession;
-        } catch (RequestException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            $statusCode = null;
-            if ($e->hasResponse()) {
-                $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage = $e->getResponse()->getBody()->getContents();
+        if ($this->connectionState) {
+            // request options
+            $requests_options = [
+                'json' => $parameters,
+            ];
+            // get transfer time, if call statistics are enable OpenCPUServer::$ENABLE_CALL_STATS = true
+            if (self::$ENABLE_CALL_STATS) {
+                $requests_options['on_stats'] = function (TransferStats $stats) {
+                    echo $stats->getEffectiveUri() . PHP_EOL;
+                    echo $stats->getTransferTime() . " seconds" . PHP_EOL;
+                };
             }
-            $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-            // ClientException is thrown for 400 level errors
-        } catch (ClientException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            $statusCode = 400;
-            if ($e->hasResponse()) {
-                $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= $e->getResponse()->getBody()->getContents();
-            }
-            $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-            // is thrown for 500 level errors
-        } catch (ServerException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            $statusCode = 500;
-            if ($e->hasResponse()) {
-                $statusCode = $e->getResponse()->getStatusCode();
-                $errorMessage .= $e->getResponse()->getBody()->getContents();
-            }
-            $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-        } catch (BadResponseException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            if ($e->hasResponse()) {
-                $errorMessage = $e->getResponse()->getBody()->getContents();
-                $statusCode = $e->getResponse()->getStatusCode();
-            } else {
-                $errorMessage = $e->getMessage();
+            try {
+                // call R function
+                $response = $this->openCPUWebServerClient->request($httpMethod, $openCPUUrlRessource, $requests_options);
+                // If call succeed
+                $body = $response->getBody();
+                // retrevies body as a string
+                $stringBody = (string) $body;
+                $sessionValuesResults = explode("\n", $stringBody);
+                // retreives the differents OpenCPU api ressources
+                $sessionValuesResultsClean = array_filter($sessionValuesResults);
+                preg_match("/^\/ocpu\/tmp\/([A-Za-z0-9]+)\/.*/", $sessionValuesResultsClean[0], $sessionIdMatch);
+                // retreives OpenCPU session identifier
+                $sessionId = $sessionIdMatch[1];
+                $this->callStatus = new CallStatus($response->getReasonPhrase(), $response->getStatusCode());
+                $sessionServerClient = new Client([
+                    // Base URI is used with relative requests
+                    'base_uri' => $this->openCPUWebServerUrl,
+                    // You can set any number of default request options.
+                    'timeout' => 120,
+                ]);
+                $newSession = new OCPUSession($sessionId, $sessionServerClient);
+                return $newSession;
+            } catch (RequestException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
                 $statusCode = null;
+                if ($e->hasResponse()) {
+                    $statusCode = $e->getResponse()->getStatusCode();
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                // ClientException is thrown for 400 level errors
+            } catch (ClientException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                $statusCode = 400;
+                if ($e->hasResponse()) {
+                    $statusCode = $e->getResponse()->getStatusCode();
+                    $errorMessage .= '--' . Psr7\str($e->getResponse()->getBody()->getContents());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                // is thrown for 500 level errors
+            } catch (ServerException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                $statusCode = 500;
+                if ($e->hasResponse()) {
+                    $statusCode = $e->getResponse()->getStatusCode();
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+            } catch (BadResponseException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                if ($e->hasResponse()) {
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                    $statusCode = $e->getResponse()->getStatusCode();
+                } else {
+                    $errorMessage = $e->getMessage();
+                    $statusCode = null;
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                return null;
             }
-            $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-            return null;
         }
         return null;
     }
-   
 
     /**
      * Execute an asynchronous call to a R function
@@ -336,126 +339,130 @@ class OpenCPUServer {
      * @return \GuzzleHttp\Promise\Promise|null return a OCPUSession or null if a problem has occured
      */
     protected function asyncOpenCPUServerCall($openCPUUrlRessource, $httpMethod = self::OPENCPU_SERVER_GET_METHOD, $parameters = [], $promiseFunction = null) {
-        // request options
-        $requests_options = [
-            'form_params' => $parameters,
-        ];
-        // if call statistics are enable OpenCPUServer::$ENABLE_CALL_STATS = true
-        if (self::$ENABLE_CALL_STATS) {
-            $requests_options['on_stats'] = function (TransferStats $stats) {
-                echo $stats->getEffectiveUri() . PHP_EOL;
-                echo $stats->getTransferTime() . " seconds" . PHP_EOL;
+        if ($this->connectionState) {
+            // request options
+            $requests_options = [
+                'form_params' => $parameters,
+            ];
+            // if call statistics are enable OpenCPUServer::$ENABLE_CALL_STATS = true
+            if (self::$ENABLE_CALL_STATS) {
+                $requests_options['on_stats'] = function (TransferStats $stats) {
+                    echo $stats->getEffectiveUri() . PHP_EOL;
+                    echo $stats->getTransferTime() . " seconds" . PHP_EOL;
+                };
+            }
+            // retreive promise object
+            $promiseResponse = $this->openCPUWebServerClient->requestAsync($httpMethod, $openCPUUrlRessource, $requests_options);
+
+            // If no error occured
+            $success = function (ResponseInterface $res) {
+                $body = $res->getBody();
+                // retrevies body as a string
+                $stringBody = (string) $body;
+                $sessionValuesResults = explode("\n", $stringBody);
+                // retreives the differents OpenCPU api ressources
+                $sessionValuesResultsClean = array_filter($sessionValuesResults);
+                preg_match("/^\/ocpu\/tmp\/([A-Za-z0-9]+)\/.*/", $sessionValuesResultsClean[0], $sessionIdMatch);
+                // retreives OpenCPU session identifier
+                $sessionId = $sessionIdMatch[1];
+                $this->callStatus = new CallStatus($res->getReasonPhrase(), $res->getStatusCode());
+                $sessionServerClient = new Client([
+                    // Base URI is used with relative requests
+                    'base_uri' => $this->openCPUWebServerUrl,
+                    // You can set any number of default request options.
+                    'timeout' => 120,
+                ]);
+                $newSession = new OCPUSession($sessionId, $sessionServerClient);
+                return $newSession;
+                // If an error occured during the request execution
             };
-        }
-        // retreive promise object
-        $promiseResponse = $this->openCPUWebServerClient->requestAsync($httpMethod, $openCPUUrlRessource, $requests_options);
 
-        // If no error occured
-        $success = function (ResponseInterface $res) {
-            $body = $res->getBody();
-            // retrevies body as a string
-            $stringBody = (string) $body;
-            $sessionValuesResults = explode("\n", $stringBody);
-            // retreives the differents OpenCPU api ressources
-            $sessionValuesResultsClean = array_filter($sessionValuesResults);
-            preg_match("/^\/ocpu\/tmp\/([A-Za-z0-9]+)\/.*/", $sessionValuesResultsClean[0], $sessionIdMatch);
-            // retreives OpenCPU session identifier
-            $sessionId = $sessionIdMatch[1];
-            $this->callStatus = new CallStatus($res->getReasonPhrase(), $res->getStatusCode());
-            $sessionServerClient = new Client([
-                // Base URI is used with relative requests
-                'base_uri' => $this->openCPUWebServerUrl,
-                // You can set any number of default request options.
-                'timeout' => 120,
-            ]);
-            $newSession = new OCPUSession($sessionId, $sessionServerClient);
-            return $newSession;
-            // If an error occured during the request execution
-        };
-
-        $error = function (\Exception $e) {
-            $this->serverCallStatus = new CallStatus($e->getMessage(), null, $e);
-            if ($e instanceof RequestException) {
-                $statusCode = null;
-                $errorMessage = Psr7\str($e->getRequest());
-                if ($e->hasResponse()) {
-                    $errorMessage .= '--' . Psr7\str($e->getResponse());
-                    $statusCode = $e->getResponse()->getStatusCode();
-                }
-                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-                // ClientException is thrown for 400 level errors
-            }
-            if ($e instanceof ClientException) {
-                $errorMessage = Psr7\str($e->getRequest());
-                $statusCode = 400;
-                if ($e->hasResponse()) {
-                    $errorMessage .= '--' . Psr7\str($e->getResponse());
-                    $statusCode = $e->getResponse()->getStatusCode();
-                }
-                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-                // is thrown for 500 level errors
-            }
-            if ($e instanceof ServerException) {
-                $errorMessage = Psr7\str($e->getRequest());
-                $statusCode = 500;
-                if ($e->hasResponse()) {
-                    $errorMessage .= '--' . Psr7\str($e->getResponse());
-                    $statusCode = $e->getResponse()->getStatusCode();
-                }
-                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
-            }
-            if ($e instanceof BadResponseException) {
-                if ($e->hasResponse()) {
-                    $errorMessage = '--' . Psr7\str($e->getResponse());
-                    $statusCode = $e->getResponse()->getStatusCode();
-                } else {
-                    $errorMessage = $e->getMessage();
+            $error = function (\Exception $e) {
+                $this->serverCallStatus = new CallStatus($e->getMessage(), null, $e);
+                if ($e instanceof RequestException) {
                     $statusCode = null;
+                    $errorMessage = Psr7\str($e->getRequest());
+                    if ($e->hasResponse()) {
+                        $errorMessage .= '--' . Psr7\str($e->getResponse());
+                        $statusCode = $e->getResponse()->getStatusCode();
+                    }
+                    $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                    // ClientException is thrown for 400 level errors
                 }
-                $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                if ($e instanceof ClientException) {
+                    $errorMessage = Psr7\str($e->getRequest());
+                    $statusCode = 400;
+                    if ($e->hasResponse()) {
+                        $errorMessage .= '--' . Psr7\str($e->getResponse());
+                        $statusCode = $e->getResponse()->getStatusCode();
+                    }
+                    $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                    // is thrown for 500 level errors
+                }
+                if ($e instanceof ServerException) {
+                    $errorMessage = Psr7\str($e->getRequest());
+                    $statusCode = 500;
+                    if ($e->hasResponse()) {
+                        $errorMessage .= '--' . Psr7\str($e->getResponse());
+                        $statusCode = $e->getResponse()->getStatusCode();
+                    }
+                    $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                }
+                if ($e instanceof BadResponseException) {
+                    if ($e->hasResponse()) {
+                        $errorMessage = '--' . Psr7\str($e->getResponse());
+                        $statusCode = $e->getResponse()->getStatusCode();
+                    } else {
+                        $errorMessage = $e->getMessage();
+                        $statusCode = null;
+                    }
+                    $this->serverCallStatus = new CallStatus($errorMessage, $statusCode, $e);
+                }
                 return null;
+            };
+
+            // if a promise function set
+            if (isset($promiseFunction) && $promiseFunction !== null && $promiseFunction instanceof \Closure) {
+                return $promiseResponse->then($success, $error)->then($promiseFunction);
+            } else {
+                return $promiseResponse->then($success, $error);
             }
-        };
-        
-        // if a promise function set
-        if (isset($promiseFunction) && $promiseFunction !== null && $promiseFunction instanceof \Closure) {
-            return $promiseResponse->then($success, $error)->then($promiseFunction);
-        } else {
-            return $promiseResponse->then($success, $error);
         }
     }
-    
+
     public function getAvailableApps() {
-        try{
-            $response = $this->openCPUWebServerClient->request(self::OPENCPU_SERVER_GET_METHOD, 'apps/');
-            $body = $response->getBody();
-            // retrevies body as a string
-            $stringBody = (string) $body;
-            $sessionValuesResults = explode("\n", $stringBody);
-            $cleansessionValuesResults = array_filter($sessionValuesResults);
-            return $cleansessionValuesResults;
-        }  catch (RequestException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            if ($e->hasResponse()) {
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
+        if ($this->connectionState) {
+            try {
+                $response = $this->openCPUWebServerClient->request(self::OPENCPU_SERVER_GET_METHOD, 'apps/');
+                $body = $response->getBody();
+                // retrevies body as a string
+                $stringBody = (string) $body;
+                $sessionValuesResults = explode("\n", $stringBody);
+                $cleansessionValuesResults = array_filter($sessionValuesResults);
+                return $cleansessionValuesResults;
+            } catch (RequestException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                if ($e->hasResponse()) {
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+                // ClientException is thrown for 400 level errors
+            } catch (ClientException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                if ($e->hasResponse()) {
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
+                // is thrown for 500 level errors
+            } catch (ServerException $e) {
+                $errorMessage = Psr7\str($e->getRequest());
+                if ($e->hasResponse()) {
+                    $errorMessage .= '--' . Psr7\str($e->getResponse());
+                }
+                $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
             }
-            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
-            // ClientException is thrown for 400 level errors
-        } catch (ClientException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            if ($e->hasResponse()) {
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
-            }
-            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
-            // is thrown for 500 level errors
-        } catch (ServerException $e) {
-            $errorMessage = Psr7\str($e->getRequest());
-            if ($e->hasResponse()) {
-                $errorMessage .= '--' . Psr7\str($e->getResponse());
-            }
-            $this->serverCallStatus = new CallStatus($errorMessage, $e->getResponse()->getStatusCode(), $e);
         }
-        
-         return [];
+        return [];
     }
+
 }

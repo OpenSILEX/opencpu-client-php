@@ -20,9 +20,6 @@
         "php": "^5.5 || ^7.0",
         "guzzlehttp/guzzle": "~6.0"
     },
-    "require-dev": {
-        "phpunit/phpunit": "^6.5"
-    },
     "autoload": {
         "psr-4": {
             "openSILEX\\opencpuClientPHP\\": "src/"
